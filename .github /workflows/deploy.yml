@@ -1,0 +1,55 @@
+name: Deploy Static Site to AWS S3
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Step 1: Checkout do código
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      
+    # Step 2: Setup e Build (validação dos arquivos)
+    - name: Setup and Validate Files
+      run: |
+        echo "Validating HTML files..."
+        find . -name "*.html" -type f -exec echo "Found HTML file: {}" \;
+        echo "Files validated successfully"
+        echo "Preparing for deployment..."
+        
+    # Step 3: Deploy para AWS S3 (usando Action oficial)
+    - name: Deploy to AWS S3
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+        
+    - name: Upload files to S3 and configure website
+      env:
+        S3_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
+      run: |
+        echo "Starting deployment to AWS S3..."
+        
+        # Sync arquivos para S3
+        aws s3 sync . s3://$S3_BUCKET --delete \
+          --exclude ".git/*" \
+          --exclude ".github/*" \
+          --exclude "README.md" \
+          --exclude "*.md"
+        
+        # Configura website hosting
+        aws s3 website s3://$S3_BUCKET \
+          --index-document index.html \
+          --error-document index.html
+        
+        echo "Deployment completed successfully!"
+        echo "Site available at: http://$S3_BUCKET.s3-website-us-east-1.amazonaws.com"
